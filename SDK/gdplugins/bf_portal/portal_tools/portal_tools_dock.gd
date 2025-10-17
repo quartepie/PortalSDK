@@ -153,12 +153,6 @@ func _setup_work_unix() -> void:
 	var exit_code = 0
 	var venv_path: String = _config["venv"]
 	var python = _config["python"]
-	
-	# check so config is adjusted and not using the default path meant for Windows
-	if python == "../SDK/runtime/python":
-		printerr("Please adjust 'python' config in bf_portal.config.json to your python3.11+ installation path")
-		call_deferred("_setup_error", "Please adjust 'python' config in bf_portal.config.json to your python3.11+ installation path")
-		return
 		
 	var venv_path_abs = ProjectSettings.globalize_path(venv_path)
 
