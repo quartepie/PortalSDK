@@ -194,8 +194,9 @@ func _export_levels() -> void:
 
 	var dialog = AcceptDialog.new()
 	var output = []
-		
-	var export_tscn = "%s/bin/export-tscn" % _config["gdconverter"]
+
+	var executable_name = "export-tscn.exe" if platform == "Windows" else "export-tscn"
+	var export_tscn = "%s/bin/%s" % [_config["gdconverter"], executable_name]
 	if not FileAccess.file_exists(ProjectSettings.globalize_path(export_tscn)):
 		portal_tools_plugin.show_log_panel()
 		var msg = "Cannot export level: export binary not found"
