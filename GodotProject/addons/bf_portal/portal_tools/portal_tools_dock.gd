@@ -262,17 +262,23 @@ func _export_levels() -> void:
 
 
 func _on_open_exports() -> void:
-	if not DirAccess.dir_exists_absolute(_output_dir):
-		DirAccess.make_dir_recursive_absolute(_output_dir)
+	# Resolve _output_dir to an absolute/native path even if it's a relative like "../export"
+	var abs_output_dir: String
+	var project_root := ProjectSettings.globalize_path("res://")
+	abs_output_dir = project_root.path_join(_output_dir).simplify_path()
+
+	if not DirAccess.dir_exists_absolute(abs_output_dir):
+		DirAccess.make_dir_recursive_absolute(abs_output_dir)
 
 	if _current_export_level_path:
 		var file = _current_export_level_path.get_file()
 		var json_file = file.replace(".tscn", ".json")
-		var supposed_path = _output_dir + "/" + json_file
+		var supposed_path = abs_output_dir.path_join(json_file)
 		if FileAccess.file_exists(supposed_path):
 			OS.shell_show_in_file_manager(supposed_path)
 			return
-	OS.shell_show_in_file_manager(_output_dir)
+	print("Open Exports: raw='" + _output_dir + "' -> abs='" + abs_output_dir + "'")
+	OS.shell_show_in_file_manager(abs_output_dir)
 
 
 func _get_all_levels(config: Dictionary) -> Array[String]:
