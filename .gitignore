@@ -18,6 +18,7 @@ mono_crash.*.json
 
 ### SDK SPECIFIC
 *.exe
+*.app
 SDK/venv/
 export/
 GodotProject/addons/scene-library/scene_library.json
