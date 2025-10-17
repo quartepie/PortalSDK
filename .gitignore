@@ -22,8 +22,10 @@ mono_crash.*.json
 SDK/venv/
 export/
 GodotProject/addons/scene-library/scene_library.json
+**/.DS_Store
 
 ### Paths to be populated by build CI
+
 SDK/deps/FbExportData/thumbnails/
 SDK/runtime/
 GodotProject/raw/
