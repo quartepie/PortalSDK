@@ -13,11 +13,11 @@ REM   ..\..\dist\<script-name-with-hyphens>.exe
 set SCRIPT_DIR=%~dp0
 set GD_ROOT=%SCRIPT_DIR%..
 for %%I in ("%GD_ROOT%") do set GD_ROOT=%%~fI
-set PROJECT_ROOT=%GD_ROOT%\..\..
+set PROJECT_ROOT=%GD_ROOT%
 for %%I in ("%PROJECT_ROOT%") do set PROJECT_ROOT=%%~fI
 
 set SRC_DIR=%GD_ROOT%\src
-set DIST_DIR=%PROJECT_ROOT%\dist
+set DIST_DIR=%PROJECT_ROOT%\bin
 
 REM Determine script name (basename without .py)
 set NAME=%~1
