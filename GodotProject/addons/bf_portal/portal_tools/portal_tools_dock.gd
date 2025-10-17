@@ -277,7 +277,6 @@ func _on_open_exports() -> void:
 		if FileAccess.file_exists(supposed_path):
 			OS.shell_show_in_file_manager(supposed_path)
 			return
-	print("Open Exports: raw='" + _output_dir + "' -> abs='" + abs_output_dir + "'")
 	OS.shell_show_in_file_manager(abs_output_dir)
 
 
