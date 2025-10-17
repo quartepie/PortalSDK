@@ -167,7 +167,8 @@ func _setup_work_unix() -> void:
 		output.pop_back()
 
 	print("Creating virtual environment...")
-	exit_code = OS.execute(python, ["-m", "venv", venv_path_abs], output, true)
+	var python_executable = "%s/bin/python3" % python
+	exit_code = OS.execute(python_executable, ["-m", "venv", venv_path_abs], output, true)
 	if exit_code != 0:
 		printerr(output)
 		printerr("Failed to create virtual environment")
