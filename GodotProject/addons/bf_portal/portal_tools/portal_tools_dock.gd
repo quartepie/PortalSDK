@@ -84,8 +84,8 @@ func _setup() -> void:
 		_setup_dialog.get_ok_button().visible = false
 		_setup_dialog.dialog_close_on_escape = false
 		EditorInterface.popup_dialog_centered(_setup_dialog)
-	elif platform == "macOS":
-		_thread.start(_setup_work_macos)
+	elif platform == "macOS" or platform == "Linux":
+		_thread.start(_setup_work_unix)
 		_setup_dialog = AcceptDialog.new()
 		_setup_dialog.title = "Setup"
 		_setup_dialog.dialog_text = "Please wait while setup finishes..."
@@ -148,7 +148,7 @@ func _setup_work_windows() -> void:
 	print("Completed setup")
 	call_deferred("_setup_success", "Completed setup")
 
-func _setup_work_macos() -> void:
+func _setup_work_unix() -> void:
 	var output = []
 	var exit_code = 0
 	var venv_path: String = _config["venv"]
@@ -217,7 +217,7 @@ func _setup_success(msg: String = "") -> void:
 
 func _export_levels() -> void:
 	var platform = OS.get_name()
-	if platform != "Windows" and platform != "macOS":
+	if platform != "Windows" and platform != "macOS" and platform != "Linux":
 		return
 
 	var dialog = AcceptDialog.new()
@@ -225,7 +225,7 @@ func _export_levels() -> void:
 	var python_venv = ""
 	if platform == "Windows":
 		python_venv = "%s/Scripts/python.exe" % _config["venv"]
-	elif platform == "macOS":
+	elif platform == "macOS" or platform == "Linux":
 		python_venv = "%s/bin/python3" % _config["venv"]
 
 	python_venv = ProjectSettings.globalize_path(python_venv)
