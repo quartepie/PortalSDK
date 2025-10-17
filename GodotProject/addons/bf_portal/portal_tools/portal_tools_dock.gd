@@ -74,30 +74,8 @@ func _setup() -> void:
 	var scene_library: SceneLibrary = portal_tools_plugin.get_scene_library_instance()
 	if scene_library != null:
 		scene_library.load_library(library_path)
-
-	var platform = OS.get_name()
-	if platform == "Windows":
-		_thread.start(_setup_work_windows)
-		_setup_dialog = AcceptDialog.new()
-		_setup_dialog.title = "Setup"
-		_setup_dialog.dialog_text = "Please wait while setup finishes..."
-		_setup_dialog.get_ok_button().visible = false
-		_setup_dialog.dialog_close_on_escape = false
-		EditorInterface.popup_dialog_centered(_setup_dialog)
-	elif platform == "macOS" or platform == "Linux":
-		_thread.start(_setup_work_unix)
-		_setup_dialog = AcceptDialog.new()
-		_setup_dialog.title = "Setup"
-		_setup_dialog.dialog_text = "Please wait while setup finishes..."
-		_setup_dialog.get_ok_button().visible = false
-		_setup_dialog.dialog_close_on_escape = false
-		EditorInterface.popup_dialog_centered(_setup_dialog)
-	else:
-		var dialog = AcceptDialog.new()  # not member variable because simply one-off
-		var msg = "Setup has not been implemented for your platform: %s" % platform
-		dialog.dialog_text = msg
-		EditorInterface.popup_dialog_centered(dialog)
-		printerr(msg)
+		
+	call_deferred("_setup_success", "Completed setup")
 
 
 func _setup_work_windows() -> void:
@@ -204,7 +182,6 @@ func _setup_error(msg: String = "") -> void:
 	_setup_dialog.dialog_text = "An error occurred when setting up:%s\nSee Output window for more details" % ("\n%s\n" % msg if msg else "")
 	_setup_dialog.get_ok_button().visible = true
 
-
 func _setup_success(msg: String = "") -> void:
 	_setup_dialog.dialog_text = msg
 	_setup_dialog.get_ok_button().visible = true
@@ -217,28 +194,22 @@ func _export_levels() -> void:
 
 	var dialog = AcceptDialog.new()
 	var output = []
-	var python_venv = ""
-	if platform == "Windows":
-		python_venv = "%s/Scripts/python.exe" % _config["venv"]
-	elif platform == "macOS" or platform == "Linux":
-		python_venv = "%s/bin/python3" % _config["venv"]
-
-	python_venv = ProjectSettings.globalize_path(python_venv)
-	if not FileAccess.file_exists(python_venv):
+		
+	var export_tscn = "%s/bin/export-tscn" % _config["gdconverter"]
+	if not FileAccess.file_exists(ProjectSettings.globalize_path(export_tscn)):
 		portal_tools_plugin.show_log_panel()
-		var msg = "Cannot export level when python is not in a virtual environment. Has setup been ran yet?"
+		var msg = "Cannot export level: export binary not found"
 		printerr(msg)
 		dialog.dialog_text = msg
 		EditorInterface.popup_dialog_centered(dialog)
 		return
-	var export_tscn = "%s/src/gdconverter/export_tscn.py" % _config["gdconverter"]
 	var scene_path = ProjectSettings.globalize_path(_current_export_level_path)
 	var level_name = scene_path.get_file().get_basename()
 	EditorInterface.save_scene()
 	var fb_export_dir = _config["fbExportData"]
 
 	var dialog_text = ""
-	var exit_code = OS.execute(python_venv, [export_tscn, scene_path, fb_export_dir, _output_dir], output, true)
+	var exit_code = OS.execute(export_tscn, [scene_path, fb_export_dir, _output_dir], output, true)
 	if exit_code != 0:
 		dialog.title = "Error"
 		dialog_text = "Failed to export %s\n" % level_name

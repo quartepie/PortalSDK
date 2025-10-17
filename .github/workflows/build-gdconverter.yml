@@ -1,0 +1,57 @@
+name: build-gdconverter
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    container:
+      image: python:3.11-slim
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install required packages
+        run: |
+          apt-get update
+          apt-get install -y git build-essential
+
+      - name: Ensure build script is executable
+        run: |
+          chmod +x SDK/deps/gdconverter/scripts/build_gdconverter.sh
+
+      - name: Build gdconverter binaries
+        shell: bash
+        run: |
+          set -euxo pipefail
+          # Build desired tools; extend this list as needed
+          SDK/deps/gdconverter/scripts/build_gdconverter.sh export_tscn
+          # SDK/deps/gdconverter/scripts/build_gdconverter.sh import_spatial 
+          # SDK/deps/gdconverter/scripts/build_gdconverter.sh create_godot 
+
+      - name: Commit and push updated binaries
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euxo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add SDK/deps/gdconverter/bin || true
+          if git diff --cached --quiet; then
+            echo "No binary changes to commit."
+            exit 0
+          fi
+          git commit -m "ci: build gdconverter binaries via Nuitka [skip ci]"
+          git push
+
+      - name: Upload binaries as artifacts (optional)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gdconverter-binaries
+          path: SDK/deps/gdconverter/bin/*
