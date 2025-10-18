@@ -194,8 +194,16 @@ func _export_levels() -> void:
 
 	var dialog = AcceptDialog.new()
 	var output = []
+
+	var executable_name
+	
+	if platform == "Windows":
+		executable_name = "export-tscn.exe"
+	elif platform == "macOS":
+		executable_name = "export_tscn_macos"
+	else:
+		executable_name = "export_tscn_linux"
 		
-	var executable_name = "export-tscn.exe" if platform == "Windows" else "export-tscn"
 	var export_tscn = "%s/bin/%s" % [_config["gdconverter"], executable_name]
 	if not FileAccess.file_exists(ProjectSettings.globalize_path(export_tscn)):
 		portal_tools_plugin.show_log_panel()
@@ -249,7 +257,6 @@ func _on_open_exports() -> void:
 		if FileAccess.file_exists(supposed_path):
 			OS.shell_show_in_file_manager(supposed_path)
 			return
-	print("Open Exports: raw='" + _output_dir + "' -> abs='" + abs_output_dir + "'")
 	OS.shell_show_in_file_manager(abs_output_dir)
 
 
