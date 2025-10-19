@@ -50,6 +50,7 @@ set "PYTHONPATH=%SRC_DIR%;%PYTHONPATH%"
 
 %PYTHON_BIN% -m nuitka ^
   --onefile ^
+  --standalone ^
   --assume-yes-for-downloads ^
   --output-dir="%DIST_DIR%" ^
   --lto=no ^
