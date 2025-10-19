@@ -67,6 +67,13 @@ func _setup() -> void:
 		return
 
 	portal_tools_plugin.show_log_panel()
+	
+	_setup_dialog = AcceptDialog.new()
+	_setup_dialog.title = "Setup"
+	_setup_dialog.dialog_text = "Please wait while setup finishes..."
+	_setup_dialog.get_ok_button().visible = false
+	_setup_dialog.dialog_close_on_escape = false
+	EditorInterface.popup_dialog_centered(_setup_dialog)
 
 	# forced to be on main thread
 	print("Generating object library")
@@ -74,16 +81,13 @@ func _setup() -> void:
 	var scene_library: SceneLibrary = portal_tools_plugin.get_scene_library_instance()
 	if scene_library != null:
 		scene_library.load_library(library_path)
-		
+
 	var platform = OS.get_name()
+	
 	if platform == "Linux" or platform == "macOS":
 		_thread.start(_setup_work_unix)
-		_setup_dialog = AcceptDialog.new()
-		_setup_dialog.title = "Setup"
-		_setup_dialog.dialog_text = "Please wait while setup finishes..."
-		_setup_dialog.get_ok_button().visible = false
-		_setup_dialog.dialog_close_on_escape = false
-		EditorInterface.popup_dialog_centered(_setup_dialog)
+	else:
+		call_deferred("_setup_success", "Setup completed")
 
 func _setup_work_unix() -> void:
 	var platform = OS.get_name()
