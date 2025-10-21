@@ -92,7 +92,7 @@ func _setup() -> void:
 func _setup_work_unix() -> void:
 	var platform = OS.get_name()
 	var output = []
-	var exec_name = "export_tscn_%s" % platform.to_lower()
+	var exec_name = "export_tscn-%s" % platform.to_lower()
 	var export_tscn = "%s/bin/%s" % [_config["gdconverter"], exec_name]
 	print("Setting up the export executable...")
 	OS.execute("chmod", ["+x", ProjectSettings.globalize_path(export_tscn)], output, true)	
@@ -119,11 +119,11 @@ func _export_levels() -> void:
 	var executable_name
 	
 	if platform == "Windows":
-		executable_name = "export-tscn.exe"
+		executable_name = "export_tscn.exe"
 	elif platform == "macOS":
-		executable_name = "export_tscn_macos"
+		executable_name = "export_tscn-macos"
 	else:
-		executable_name = "export_tscn_linux"
+		executable_name = "export_tscn-linux"
 		
 	var export_tscn = "%s/bin/%s" % [_config["gdconverter"], executable_name]
 	if not FileAccess.file_exists(ProjectSettings.globalize_path(export_tscn)):

@@ -1,106 +1,92 @@
-name: Build gdconverter binaries
+name: Build gdconverter
 
 on:
   workflow_dispatch:
 
+concurrency:
+  group: build-gdconverter-matrix-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
 
-concurrency:
-  group: build-gdconverter-${{ github.ref }}
-  cancel-in-progress: false
-
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
-    container:
-      image: python:3.11-slim
-    steps:
-      - name: Install required packages (before checkout)
-        run: |
-          apt-get update
-          apt-get install -y git build-essential
+  build:
+    name: Build on ${{ matrix.os }} for ${{ matrix.script }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        script: [export_tscn]
+    runs-on: ${{ matrix.os }}
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Ensure build script is executable
-        run: chmod +x SDK/deps/gdconverter/scripts/build_gdconverter.sh
-
-      - name: Build Linux binaries
-        shell: bash
-        run: |
-          set -euxo pipefail
-          SDK/deps/gdconverter/scripts/build_gdconverter.sh export_tscn export_tscn_linux
-          # SDK/deps/gdconverter/scripts/build_gdconverter.sh import_spatial import_spatial_linux
-          # SDK/deps/gdconverter/scripts/build_gdconverter.sh create_godot create_godot_linux
-
-      - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: gdconverter-binaries-linux
-          path: SDK/deps/gdconverter/bin/*
-
-  build-macos:
-    runs-on: macos-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Ensure build script is executable
-        run: chmod +x SDK/deps/gdconverter/scripts/build_gdconverter.sh
-
-      - name: Build macOS binaries
+      - name: Install build deps (Nuitka + patchelf on Linux)
         shell: bash
         run: |
-          set -euxo pipefail
-          SDK/deps/gdconverter/scripts/build_gdconverter.sh export_tscn export_tscn_macos
-          # SDK/deps/gdconverter/scripts/build_gdconverter.sh import_spatial import_spatial_macos
-          # SDK/deps/gdconverter/scripts/build_gdconverter.sh create_godot create_godot_macos
+          python -m pip install --upgrade pip
+          if [[ "$RUNNER_OS" == "Linux" ]]; then
+            python -m pip show nuitka >/dev/null 2>&1 || python -m pip install nuitka patchelf
+          else
+            python -m pip show nuitka >/dev/null 2>&1 || python -m pip install nuitka
+          fi
 
-      - name: Upload macOS artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: gdconverter-binaries-macos
-          path: SDK/deps/gdconverter/bin/*
-
-  build-windows:
-    runs-on: windows-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Build Windows binaries
-        shell: cmd
+      - name: Build with Nuitka (inline)
+        shell: bash
+        env:
+          PYTHONPATH: ${{ github.workspace }}/SDK/deps/gdconverter/src
         run: |
-          SDK\deps\gdconverter\scripts\build_gdconverter.bat export_tscn
+          set -euxo pipefail
+          mkdir -p SDK/deps/gdconverter/bin
+          case "$RUNNER_OS" in
+            Linux)
+              OUTPUT_NAME="${{ matrix.script }}-linux"
+              ;;
+            macOS)
+              OUTPUT_NAME="${{ matrix.script }}-macos"
+              ;;
+            Windows)
+              OUTPUT_NAME="${{ matrix.script }}"
+              ;;
+            *)
+              OUTPUT_NAME="${{ matrix.script }}-$RUNNER_OS"
+              ;;
+          esac
+          python -m nuitka \
+            --onefile \
+            --standalone \
+            --assume-yes-for-downloads \
+            --output-dir=SDK/deps/gdconverter/bin \
+            --lto=no \
+            --include-package=gdconverter \
+            --noinclude-numba-mode=nofollow \
+            --nofollow-import-to=pytest \
+            --remove-output \
+            --output-filename="$OUTPUT_NAME" \
+            "SDK/deps/gdconverter/src/gdconverter/${{ matrix.script }}.py"
 
-      - name: Upload Windows artifacts
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: gdconverter-binaries-windows
-          path: SDK/deps/gdconverter/bin/*
+          name: ${{ runner.os }}-${{ matrix.script }}
+          path: |
+            SDK/deps/gdconverter/bin/${{ matrix.script }}-linux
+            SDK/deps/gdconverter/bin/${{ matrix.script }}-macos
+            SDK/deps/gdconverter/bin/export_tscn.exe
+          if-no-files-found: warn
 
   publish-binaries:
-    # Single point of truth for the repository commit/push
+    name: Publish binaries to repo
     runs-on: ubuntu-latest
-    needs: [build-linux, build-macos, build-windows]
+    needs: [build]
     steps:
       - name: Checkout repository (same ref)
         uses: actions/checkout@v4
@@ -108,35 +94,22 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.ref }}
 
-      - name: Download Linux artifacts
+      - name: Download built artifacts (all OS)
         uses: actions/download-artifact@v4
         with:
-          name: gdconverter-binaries-linux
-          path: _artifacts/linux
-
-      - name: Download macOS artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: gdconverter-binaries-macos
-          path: _artifacts/macos
-
-      - name: Download Windows artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: gdconverter-binaries-windows
-          path: _artifacts/windows
+          pattern: "*-export_tscn"
+          merge-multiple: true
+          path: _artifacts
 
       - name: Stage artifacts into repo tree
+        shell: bash
         run: |
           set -euxo pipefail
           mkdir -p SDK/deps/gdconverter/bin
-          # Copy with overwrite; adjust filters if needed
-          cp -f _artifacts/linux/* SDK/deps/gdconverter/bin/ 2>/dev/null || true
-          cp -f _artifacts/macos/* SDK/deps/gdconverter/bin/ 2>/dev/null || true
-          cp -f _artifacts/windows/* SDK/deps/gdconverter/bin/ 2>/dev/null || true
+          cp -f _artifacts/* SDK/deps/gdconverter/bin/ 2>/dev/null || true
           ls -la SDK/deps/gdconverter/bin
 
-      - name: Commit and push once
+      - name: Commit and push binaries
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
@@ -150,5 +123,5 @@ jobs:
             echo "No binary changes to commit."
             exit 0
           fi
-          git commit -m "ci: publish gdconverter binaries for Linux/macOS/Windows via Nuitka [skip ci]"
+          git commit -m "ci: publish gdconverter binaries (Linux/macOS/Windows) via Nuitka [skip ci]"
           git push

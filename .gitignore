@@ -19,7 +19,7 @@ mono_crash.*.json
 ### SDK SPECIFIC
 *.exe
 ### keep gdconverter build
-!SDK/deps/gdconverter/bin/export-tscn.exe
+!SDK/deps/gdconverter/bin/export_tscn.exe
 *.app
 SDK/venv/
 export/
