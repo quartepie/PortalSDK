@@ -67,6 +67,13 @@ func _setup() -> void:
 		return
 
 	portal_tools_plugin.show_log_panel()
+	
+	_setup_dialog = AcceptDialog.new()
+	_setup_dialog.title = "Setup"
+	_setup_dialog.dialog_text = "Please wait while setup finishes..."
+	_setup_dialog.get_ok_button().visible = false
+	_setup_dialog.dialog_close_on_escape = false
+	EditorInterface.popup_dialog_centered(_setup_dialog)
 
 	# forced to be on main thread
 	print("Generating object library")
@@ -76,134 +83,25 @@ func _setup() -> void:
 		scene_library.load_library(library_path)
 
 	var platform = OS.get_name()
-	if platform == "Windows":
-		_thread.start(_setup_work_windows)
-		_setup_dialog = AcceptDialog.new()
-		_setup_dialog.title = "Setup"
-		_setup_dialog.dialog_text = "Please wait while setup finishes..."
-		_setup_dialog.get_ok_button().visible = false
-		_setup_dialog.dialog_close_on_escape = false
-		EditorInterface.popup_dialog_centered(_setup_dialog)
-	elif platform == "macOS" or platform == "Linux":
+	
+	if platform == "Linux" or platform == "macOS":
 		_thread.start(_setup_work_unix)
-		_setup_dialog = AcceptDialog.new()
-		_setup_dialog.title = "Setup"
-		_setup_dialog.dialog_text = "Please wait while setup finishes..."
-		_setup_dialog.get_ok_button().visible = false
-		_setup_dialog.dialog_close_on_escape = false
-		EditorInterface.popup_dialog_centered(_setup_dialog)
 	else:
-		var dialog = AcceptDialog.new()  # not member variable because simply one-off
-		var msg = "Setup has not been implemented for your platform: %s" % platform
-		dialog.dialog_text = msg
-		EditorInterface.popup_dialog_centered(dialog)
-		printerr(msg)
-
-
-func _setup_work_windows() -> void:
-	var output = []
-	var exit_code = 0
-	var venv_path: String = _config["venv"]
-
-	if DirAccess.dir_exists_absolute(venv_path):
-		print("Cleaning previous virtual environment")
-		OS.execute("powershell.exe", ["-Command", "Remove-Item -Recurse -Force %s -ErrorAction SilentlyContinue" % venv_path], output, true)
-		if DirAccess.dir_exists_absolute(venv_path):
-			printerr(output)
-			printerr("Failed to cleanup previous setup")
-			call_deferred("_setup_error", "Failed to cleanup previous setup")
-			return
-		output.pop_back()
-
-	print("Creating virtual environment...")
-	var python = "%s/python.exe" % _config["python"]
-	exit_code = OS.execute(python, ["-m", "venv", venv_path], output, true)
-	if exit_code != 0:
-		printerr(output)
-		printerr("Failed to create virtual environment")
-		call_deferred("_setup_error", "Failed to create virtual environment")
-		return
-	output.pop_back()
-
-	print("Installing packages to virtual environment...")
-	var python_venv = "%s/Scripts/python.exe" % venv_path
-	exit_code = OS.execute(python_venv, ["-m", "pip", "install", "--upgrade", "pip"], output, true)
-	if exit_code != 0:
-		printerr(output)
-		printerr("Upgrading pip failed")
-		call_deferred("_setup_error", "Upgrading pip failed")
-		return
-	output.pop_back()
-
-	# requirements.txt uses relative paths and cannot change cwd with OS.execute yet so need pwsh here
-	var venv_path_split = venv_path.rsplit("venv", true, 1)
-	var base_path = venv_path_split[0] if venv_path_split.size() > 1 else "."
-	var args = "cd %s ; venv/Scripts/python.exe -m pip install -r ./requirements.txt" % base_path
-	exit_code = OS.execute("powershell.exe", ["-Command", args], output, true)
-	if exit_code != 0:
-		print(output)
-		printerr("Installing requirements failed")
-		call_deferred("_setup_error", "Installing requirements failed")
-		return
-	print("Completed setup")
-	call_deferred("_setup_success", "Completed setup")
+		call_deferred("_setup_success", "Setup completed")
 
 func _setup_work_unix() -> void:
+	var platform = OS.get_name()
 	var output = []
-	var exit_code = 0
-	var venv_path: String = _config["venv"]
-	var python = _config["python"]
-
-	var venv_path_abs = ProjectSettings.globalize_path(venv_path)
-
-	if DirAccess.dir_exists_absolute(venv_path):
-		print("Cleaning previous virtual environment")
-		OS.execute("rm", ["-rf", venv_path_abs], output, true)
-		if DirAccess.dir_exists_absolute(venv_path):
-			printerr(output)
-			printerr("Failed to cleanup previous setup")
-			call_deferred("_setup_error", "Failed to cleanup previous setup")
-			return
-		output.pop_back()
-
-	print("Creating virtual environment...")
-	var python_executable = "%s/bin/python3" % python
-	exit_code = OS.execute(python_executable, ["-m", "venv", venv_path_abs], output, true)
-	if exit_code != 0:
-		printerr(output)
-		printerr("Failed to create virtual environment")
-		call_deferred("_setup_error", "Failed to create virtual environment")
-		return
-	output.pop_back()
-
-	print("Installing packages to virtual environment...")
-	var python_venv_abs = "%s/bin/python3" % venv_path_abs
-	exit_code = OS.execute(python_venv_abs, ["-m", "pip", "install", "--upgrade", "pip"], output, true)
-	if exit_code != 0:
-		printerr(output)
-		printerr("Upgrading pip failed")
-		call_deferred("_setup_error", "Upgrading pip failed")
-		return
-	output.pop_back()
-
-	# requirements.txt uses relative paths so we need to run from the correct directory
-	var venv_path_split = venv_path.rsplit("venv", true, 1)
-	var base_path = venv_path_split[0] if venv_path_split.size() > 1 else "."
-	var args = "cd '%s' && '%s' -m pip install -r ./requirements.txt" % [base_path, './venv/bin/python']
-	print(args);
-	exit_code = OS.execute("/bin/sh", ["-c", args], output, true)
-	if exit_code != 0:
-		print(output)
-		printerr("Installing requirements failed")
-		call_deferred("_setup_error", "Installing requirements failed")
-		return
-	print("Completed setup")
-	call_deferred("_setup_success", "Completed setup")
+	var exec_name = "export_tscn-%s" % platform.to_lower()
+	var export_tscn = "%s/bin/%s" % [_config["gdconverter"], exec_name]
+	print("Setting up the export executable...")
+	OS.execute("chmod", ["+x", ProjectSettings.globalize_path(export_tscn)], output, true)	
+	call_deferred("_setup_success", "Setup completed")
+	print("Setup completed")
 
 func _setup_error(msg: String = "") -> void:
 	_setup_dialog.dialog_text = "An error occurred when setting up:%s\nSee Output window for more details" % ("\n%s\n" % msg if msg else "")
 	_setup_dialog.get_ok_button().visible = true
-
 
 func _setup_success(msg: String = "") -> void:
 	_setup_dialog.dialog_text = msg
@@ -217,28 +115,31 @@ func _export_levels() -> void:
 
 	var dialog = AcceptDialog.new()
 	var output = []
-	var python_venv = ""
-	if platform == "Windows":
-		python_venv = "%s/Scripts/python.exe" % _config["venv"]
-	elif platform == "macOS" or platform == "Linux":
-		python_venv = "%s/bin/python3" % _config["venv"]
 
-	python_venv = ProjectSettings.globalize_path(python_venv)
-	if not FileAccess.file_exists(python_venv):
+	var executable_name
+	
+	if platform == "Windows":
+		executable_name = "export_tscn.exe"
+	elif platform == "macOS":
+		executable_name = "export_tscn-macos"
+	else:
+		executable_name = "export_tscn-linux"
+		
+	var export_tscn = "%s/bin/%s" % [_config["gdconverter"], executable_name]
+	if not FileAccess.file_exists(ProjectSettings.globalize_path(export_tscn)):
 		portal_tools_plugin.show_log_panel()
-		var msg = "Cannot export level when python is not in a virtual environment. Has setup been ran yet?"
+		var msg = "Cannot export level: export binary not found"
 		printerr(msg)
 		dialog.dialog_text = msg
 		EditorInterface.popup_dialog_centered(dialog)
 		return
-	var export_tscn = "%s/src/gdconverter/export_tscn.py" % _config["gdconverter"]
 	var scene_path = ProjectSettings.globalize_path(_current_export_level_path)
 	var level_name = scene_path.get_file().get_basename()
 	EditorInterface.save_scene()
 	var fb_export_dir = _config["fbExportData"]
 
 	var dialog_text = ""
-	var exit_code = OS.execute(python_venv, [export_tscn, scene_path, fb_export_dir, _output_dir], output, true)
+	var exit_code = OS.execute(export_tscn, [scene_path, fb_export_dir, _output_dir], output, true)
 	if exit_code != 0:
 		dialog.title = "Error"
 		dialog_text = "Failed to export %s\n" % level_name
