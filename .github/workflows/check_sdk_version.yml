@@ -5,9 +5,8 @@ on:
     - cron: "0 * * * *"
 
 env:
-  PORTAL_SDK_VERSION: "1.0.1.0"
-  PORTAL_SDK_SIZE: "2419712762"
-  VERSION_COUNT: "1"
+  PORTAL_SDK_VERSION: "1.1.1.0"
+  PORTAL_SDK_SIZE: "2941058365"
 
 jobs:
   build:
@@ -21,22 +20,10 @@ jobs:
         run: |
           VERSION=$(echo "$SDK_VERSION_INFO" | jq -r '.versions | last | .version')
           FILE_SIZE=$(echo "$SDK_VERSION_INFO" | jq -r '.versions | last | .fileSize')
-          VERSION_COUNT=$(echo "$SDK_VERSION_INFO" | jq -r '.versionCount')
           echo "NEW_SDK_VERSION=$VERSION" >> $GITHUB_ENV
           echo "NEW_SDK_SIZE=$FILE_SIZE" >> $GITHUB_ENV
-          echo "NEW_VERSION_COUNT=$VERSION_COUNT" >> $GITHUB_ENV
-      - name: Check Version Count
-        id: check_version_count
-        run: |
-          if [ "$VERSION_COUNT" != "$NEW_VERSION_COUNT" ]; then
-            echo "version_count_changed=true" >> $GITHUB_OUTPUT
-            echo "Version count changed $VERSION_COUNT -> $NEW_VERSION_COUNT"
-          else
-            echo "version_count_changed=false" >> $GITHUB_OUTPUT
-            echo "Version and size check skipped."
-          fi
+
       - name: Check Version and Size Difference
-        if: steps.check_version_count.outputs.version_count_changed == 'true'
         run: |
           if [ "$PORTAL_SDK_VERSION" != "$NEW_SDK_VERSION" ]; then
             echo "::warning title=Version Mismatch::Portal SDK version has changed.  Old: $PORTAL_SDK_VERSION, New: $NEW_SDK_VERSION"
@@ -53,4 +40,4 @@ jobs:
         with:
           webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
           username: "PortalSDK Version Tracker"
-          message: ":bf6: <@916729041002852363>\n### New Version of Official SDK Available.\nNew Version: `${{ env.NEW_SDK_VERSION }}`\nNew Size: `${{ env.NEW_SDK_SIZE }}`\n[Download](https://download.portal.battlefield.com/PortalSDK.zip)"
+          message: ":bf6: <@338947895665360898>\n### New Version of Official SDK Available.\nNew Version: `${{ env.NEW_SDK_VERSION }}`\nNew Size: `${{ env.NEW_SDK_SIZE }}`\n[Download](https://download.portal.battlefield.com/PortalSDK.zip)"
