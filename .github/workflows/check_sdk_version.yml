@@ -14,8 +14,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
+      
+      - name: Restore version cache
+        id: cache-restore
+        uses: actions/cache/restore@v3
+        with:
+          path: .sdk-cache
+          key: sdk-version-${{ env.PORTAL_SDK_VERSION }}
+          restore-keys: |
+            sdk-version-
+      
       - name: Get Offical Portal Version Info
         run: echo "SDK_VERSION_INFO=$(curl -A 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:143.0) Gecko/20100101 Firefox/143.0'  'https://download.portal.battlefield.com/versions.json')" >> $GITHUB_ENV
+      
       - name: Extract Version, File Size, and Version Count
         run: |
           VERSION=$(echo "$SDK_VERSION_INFO" | jq -r '.versions | last | .version')
@@ -34,8 +45,35 @@ jobs:
           if [ "$PORTAL_SDK_VERSION" == "$NEW_SDK_VERSION" ] || [ "$PORTAL_SDK_SIZE" == "$NEW_SDK_SIZE" ]; then
             echo "Version and size match."
           fi
+      
+      - name: Check if version is cached
+        id: check-cache
+        run: |
+          mkdir -p .sdk-cache
+          if [ -f ".sdk-cache/sdk-${{ env.NEW_SDK_VERSION }}" ]; then
+            echo "VERSION_EXISTS=true" >> $GITHUB_ENV
+            echo "Version ${{ env.NEW_SDK_VERSION }} already cached, skipping Discord notification"
+          else
+            echo "VERSION_EXISTS=false" >> $GITHUB_ENV
+            echo "New version detected, will send Discord notification"
+          fi
+      
+      - name: Create version marker
+        if: env.VERSION_EXISTS == 'false'
+        run: |
+          mkdir -p .sdk-cache
+          echo "${{ env.NEW_SDK_VERSION }}" > .sdk-cache/sdk-${{ env.NEW_SDK_VERSION }}
+          echo "Created cache marker for version ${{ env.NEW_SDK_VERSION }}"
+      
+      - name: Save version cache
+        if: env.VERSION_EXISTS == 'false'
+        uses: actions/cache/save@v3
+        with:
+          path: .sdk-cache
+          key: sdk-version-${{ env.NEW_SDK_VERSION }}
+      
       - name: Send Alert to discord
-        if: steps.check_version_count.outputs.version_count_changed == 'true'
+        if: env.VERSION_EXISTS == 'false'
         uses: appleboy/discord-action@v1.2.0
         with:
           webhook_url: ${{ secrets.DISCORD_WEBHOOK_URL }}
